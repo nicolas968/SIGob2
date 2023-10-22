@@ -17,19 +17,24 @@
       <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
       <script src="https://js.arcgis.com/4.27/"></script>
       <script>
-        require(["esri/config", "esri/Map", "esri/views/MapView"], function(esriConfig, Map, MapView) {
+        require(["esri/config", "esri/Map", "esri/views/MapView", "esri/widgets/Search"], function(esriConfig, Map, MapView, Search) {
   
             esriConfig.apiKey = "AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St";
 
             const map = new Map({
-              basemap: "arcgis-topographic" // Basemap layer service
+              basemap: "arcgis-navigation"
             });
             const view = new MapView({
+                container: "viewDiv",
                 map: map,
-                center: [-118.805, 34.027], // Longitude, latitude
-                zoom: 13, // Zoom level
-                container: "viewDiv" // Div element
+                center: [-122.3321,47.6062],
+                zoom: 12
               });
+              const search = new Search({  //Add Search widget
+                view: view
+              });
+              view.ui.add(search, "top-right"); //Add to the map
+
         });
       </script>
   
