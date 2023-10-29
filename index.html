@@ -1,46 +1,165 @@
 <html>
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
-      <title>ArcGIS Maps SDK for JavaScript Tutorials: Display a map</title>
-  
-      <style>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>ArcGIS Maps SDK for JavaScript Tutorials: Display a map</title>
+
+    <style>
         html,
         body,
         #viewDiv {
-          padding: 0;
-          margin: 0;
-          height: 100%;
-          width: 100%;
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
         }
-      </style>
-      <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
-      <script src="https://js.arcgis.com/4.27/"></script>
-      <script>
-        require(["esri/config", "esri/Map", "esri/views/MapView", "esri/widgets/Search"], function(esriConfig, Map, MapView, Search) {
-  
+    </style>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.27/"></script>
+    <script>
+        // mock car_position
+        const carGeometry = {
+            type: "point",
+            longitude: -122.3321,
+            latitude: 47.6062
+        };
+
+
+        require([
+            "esri/config",
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/widgets/Search",
+            "esri/rest/geometryService",
+            "esri/Graphic",
+            "esri/rest/support/BufferParameters",
+            "esri/layers/FeatureLayer"
+        ], function(
+            esriConfig,
+            Map,
+            MapView,
+            Search,
+            GeometryService,
+            Graphic,
+            BufferParameters,
+            FeatureLayer
+        ) {
+
             esriConfig.apiKey = "AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St";
 
             const map = new Map({
-              basemap: "arcgis-navigation"
+                basemap: "arcgis-navigation"
             });
             const view = new MapView({
                 container: "viewDiv",
                 map: map,
                 center: [-122.3321,47.6062],
                 zoom: 12
-              });
-              const search = new Search({  //Add Search widget
+            });
+            const search = new Search({  //Add Search widget
                 view: view
-              });
-              view.ui.add(search, "top-right"); //Add to the map
+            });
+            view.ui.add(search, "top-right"); //Add to the map
+
+            const carSymbol = {
+                type: "picture-marker",
+                url: "https://static.vecteezy.com/system/resources/previews/001/193/929/original/vintage-car-png.png",
+                width: "100px",
+                height: "48px"
+            }
+
+            const carAttributes = {
+                name: "car",
+                location: "Seattle"
+            }
+
+            const carGraphic = new Graphic({
+                geometry: carGeometry,
+                symbol: carSymbol,
+                attributes: carAttributes
+            });
+
+            view.graphics.add(carGraphic);
+
+            // https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Counties/FeatureServer
+            const featureLayer = new FeatureLayer({
+                url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Counties/FeatureServer/0"
+            });
+
+            map.add(featureLayer);
+
+
+            console.log(GeometryService)
+            const getCarBuffer = async () => {
+                const bufferParams = new BufferParameters({
+                    distances: [100],
+                    unit: "kilometers",
+                    geodesic: true,
+                    bufferSpatialReference: view.spatialReference,
+                    outSpatialReference: view.spatialReference,
+                    geometries: [carGeometry]
+                });
+                const bufferedCar = await GeometryService.buffer('http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer', bufferParams)
+
+                console.log(bufferedCar, 'bufferedCar')
+
+                return new Graphic({
+                    geometry: bufferedCar[0],
+                    symbol: {
+                        type: "simple-fill",
+                        color: [0, 0, 0, 0.2],
+                        outline: {
+                            color: [0, 0, 0, 0.5],
+                            width: 2
+                        }
+                    }
+                });
+            }
+
+            let carBufferGraphic = undefined
+
+            // main loop
+            let last = Date.now()
+            setInterval(function() {
+                const now = Date.now()
+                const delta = now - last
+                last = now
+
+                view.graphics.removeAll()
+
+                const carGraphic = new Graphic({
+                    geometry: carGeometry,
+                    symbol: carSymbol,
+                    attributes: carAttributes
+                });
+
+                view.graphics.add(carGraphic);
+                view.graphics.add(carBufferGraphic);
+
+                carGeometry.longitude += 0.0001 * delta
+            }, 0)
+
+            // buffer loop
+            setInterval(function() {
+                getCarBuffer().then((buffer) => {
+                    carBufferGraphic = buffer
+                })
+
+                featureLayer.featureEffect = {
+                    filter: {
+                        geometry: carBufferGraphic.geometry,
+                        spatialRelationship: "intersects"
+                    },
+                    excludedEffect: "grayscale(100%) opacity(30%)"
+                }
+            }, 1000)
 
         });
-      </script>
-  
+    </script>
 
-    </head>
-    <body>
-      <div id="viewDiv"></div>
-    </body>
-  </html>
+
+</head>
+<body>
+<div id="viewDiv"></div>
+</body>
+</html>
