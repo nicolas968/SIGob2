@@ -18,12 +18,13 @@
     <script src="https://js.arcgis.com/4.27/"></script>
     <script>
         // mock car_position
-        const carGeometry = {
+        const populationServiceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Counties/FeatureServer'
+
+        let carGeometry = {
             type: "point",
             longitude: -122.3321,
             latitude: 47.6062
         };
-
 
         require([
             "esri/config",
@@ -33,7 +34,9 @@
             "esri/rest/geometryService",
             "esri/Graphic",
             "esri/rest/support/BufferParameters",
-            "esri/layers/FeatureLayer"
+            "esri/layers/FeatureLayer",
+            "esri/geometry/Point",
+            "esri/rest/support/AreasAndLengthsParameters"
         ], function(
             esriConfig,
             Map,
@@ -42,7 +45,9 @@
             GeometryService,
             Graphic,
             BufferParameters,
-            FeatureLayer
+            FeatureLayer,
+            Point,
+            AreasAndLengthsParameters
         ) {
 
             esriConfig.apiKey = "AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St";
@@ -82,17 +87,17 @@
             view.graphics.add(carGraphic);
 
             // https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Counties/FeatureServer
-            const featureLayer = new FeatureLayer({
-                url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Counties/FeatureServer/0"
+
+            const populationFeatureLayer = new FeatureLayer({
+                url: populationServiceUrl
             });
 
-            map.add(featureLayer);
-
+            map.add(populationFeatureLayer);
 
             console.log(GeometryService)
             const getCarBuffer = async () => {
                 const bufferParams = new BufferParameters({
-                    distances: [100],
+                    distances: [1/1.77],
                     unit: "kilometers",
                     geodesic: true,
                     bufferSpatialReference: view.spatialReference,
@@ -117,6 +122,15 @@
             }
 
             let carBufferGraphic = undefined
+            getCarBuffer().then((buffer) => {
+                carBufferGraphic = buffer
+
+                view.graphics.add(carBufferGraphic);
+            })
+
+            view.graphics.removeAll()
+
+            view.graphics.add(carGraphic);
 
             // main loop
             let last = Date.now()
@@ -124,35 +138,121 @@
                 const now = Date.now()
                 const delta = now - last
                 last = now
+                carGeometry = {
+                    type: "point",
+                    longitude: carGraphic.geometry.longitude + 0.0001 * delta,
+                    latitude: carGraphic.geometry.latitude
+                }
+                carGraphic.geometry = new Point(
+                    carGeometry
+                )
+            }, 4000)
 
-                view.graphics.removeAll()
-
-                const carGraphic = new Graphic({
-                    geometry: carGeometry,
-                    symbol: carSymbol,
-                    attributes: carAttributes
-                });
-
-                view.graphics.add(carGraphic);
-                view.graphics.add(carBufferGraphic);
-
-                carGeometry.longitude += 0.0001 * delta
-            }, 0)
+            let interesectedGraphics = []
 
             // buffer loop
             setInterval(function() {
                 getCarBuffer().then((buffer) => {
+                    view.graphics.remove(carBufferGraphic);
                     carBufferGraphic = buffer
+                    view.graphics.add(carBufferGraphic);
+
+                    let query = populationFeatureLayer.createQuery();
+
+                    query.geometry = carBufferGraphic.geometry;
+                    query.spatialRelationship = "intersects";
+                    query.returnGeometry = true;
+                    query.outFields = [ "POPULATION" ];
+                    populationFeatureLayer.queryFeatures(query)
+                        .then(function(response) {
+                            const promises = []
+
+                            // clean up old intersected geometries
+                            for (const intersectedGraphic of interesectedGraphics) {
+                                view.graphics.remove(intersectedGraphic)
+                            }
+                            interesectedGraphics = []
+
+                            // draw the intersected geometries
+                            for (const feature of response.features) {
+                                const intersectedGeometry = feature.geometry
+                                const intersectedGeometryGraphic = new Graphic({
+                                    geometry: intersectedGeometry,
+                                    symbol: {
+                                        type: "simple-fill",
+                                        color: [0, 0, 0, 0.2],
+                                        outline: {
+                                            color: [0, 0, 0, 0.5],
+                                            width: 2
+                                        }
+                                    }
+                                });
+
+                                interesectedGraphics.push(intersectedGeometryGraphic)
+                                view.graphics.add(intersectedGeometryGraphic);
+                            }
+
+
+                            for (const feature of response.features) {
+                                promises.push(new Promise(async (resolve, reject) => {
+                                    const population = feature.attributes.POPULATION;
+                                    const countyGeometry = feature.geometry;
+
+                                    const intersectedGeometriesPromise = GeometryService.intersect(
+                                        'http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer',
+                                        [countyGeometry],
+                                        carBufferGraphic.geometry
+                                    ).then((intersectedGeometries) => {
+                                        // only 1 geometry
+                                        const intersectedGeometry = intersectedGeometries[0]
+                                        // calculate area
+                                        return GeometryService.areasAndLengths(
+                                            'http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer',
+                                            new AreasAndLengthsParameters({
+                                                lengthUnit: 'kilometers',
+                                                areaUnit: 'square-kilometers',
+                                                calculationType: 'preserveShape',
+                                                polygons: [intersectedGeometry]
+                                            })
+                                        )
+                                    })
+
+                                    const countyAreaPromise = GeometryService.areasAndLengths(
+                                        'http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer',
+                                        new AreasAndLengthsParameters({
+                                            lengthUnit: 'kilometers',
+                                            areaUnit: 'square-kilometers',
+                                            calculationType: 'preserveShape',
+                                            polygons: [countyGeometry]
+                                        })
+                                    )
+
+                                    const [intersectedGeometryArea, countyArea] = await Promise.all([intersectedGeometriesPromise, countyAreaPromise])
+                                    console.log([intersectedGeometryArea, countyArea], 'intersectedGeometryArea, countyArea')
+                                    const interesectedRatio = intersectedGeometryArea.areas[0] / countyArea.areas[0]
+
+                                    // return ratio * population
+                                    resolve(interesectedRatio * population)
+                                }))
+                            }
+
+                            Promise.all(promises).then((results) => {
+                                const totalPopulation = results.reduce((a, b) => a + b, 0)
+                                document.getElementById('total-pop').innerHTML = totalPopulation
+                            })
+
+                            // this should not work lol
+
+
+                        });
                 })
 
-                featureLayer.featureEffect = {
-                    filter: {
-                        geometry: carBufferGraphic.geometry,
-                        spatialRelationship: "intersects"
-                    },
-                    excludedEffect: "grayscale(100%) opacity(30%)"
-                }
-            }, 1000)
+                // Get sum of POPULATION_2020 based on the intersect of the buffer with the counties in the feature layer
+
+
+
+
+            }, 4000)
 
         });
     </script>
@@ -160,6 +260,10 @@
 
 </head>
 <body>
-<div id="viewDiv"></div>
+<div id="viewDiv">
+</div>
+<div style="position: absolute; top:0; background: beige; border-radius: 10px; padding:10px;">
+    <span id="total-pop"/>
+</div>
 </body>
 </html>
