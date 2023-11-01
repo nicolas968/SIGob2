@@ -36,7 +36,10 @@
             "esri/rest/support/BufferParameters",
             "esri/layers/FeatureLayer",
             "esri/geometry/Point",
-            "esri/rest/support/AreasAndLengthsParameters"
+            "esri/rest/support/AreasAndLengthsParameters",
+            "esri/rest/support/RouteParameters",
+            "esri/rest/support/FeatureSet",
+            "esri/rest/route",
         ], function(
             esriConfig,
             Map,
@@ -47,7 +50,10 @@
             BufferParameters,
             FeatureLayer,
             Point,
-            AreasAndLengthsParameters
+            AreasAndLengthsParameters,
+            RouteParameters,
+            FeatureSet,
+            route
         ) {
 
             esriConfig.apiKey = "AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St";
@@ -58,7 +64,7 @@
             const view = new MapView({
                 container: "viewDiv",
                 map: map,
-                center: [-122.3321,47.6062],
+                center: [-122.690176,45.522054],
                 zoom: 12
             });
             const search = new Search({  //Add Search widget
@@ -94,10 +100,9 @@
 
             map.add(populationFeatureLayer);
 
-            console.log(GeometryService)
             const getCarBuffer = async () => {
                 const bufferParams = new BufferParameters({
-                    distances: [1/1.77],
+                    distances: [1],
                     unit: "kilometers",
                     geodesic: true,
                     bufferSpatialReference: view.spatialReference,
@@ -105,8 +110,6 @@
                     geometries: [carGeometry]
                 });
                 const bufferedCar = await GeometryService.buffer('http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer', bufferParams)
-
-                console.log(bufferedCar, 'bufferedCar')
 
                 return new Graphic({
                     geometry: bufferedCar[0],
@@ -132,21 +135,7 @@
 
             view.graphics.add(carGraphic);
 
-            // main loop
-            let last = Date.now()
-            setInterval(function() {
-                const now = Date.now()
-                const delta = now - last
-                last = now
-                carGeometry = {
-                    type: "point",
-                    longitude: carGraphic.geometry.longitude + 0.0001 * delta,
-                    latitude: carGraphic.geometry.latitude
-                }
-                carGraphic.geometry = new Point(
-                    carGeometry
-                )
-            }, 4000)
+
 
             let interesectedGraphics = []
 
@@ -228,7 +217,6 @@
                                     )
 
                                     const [intersectedGeometryArea, countyArea] = await Promise.all([intersectedGeometriesPromise, countyAreaPromise])
-                                    console.log([intersectedGeometryArea, countyArea], 'intersectedGeometryArea, countyArea')
                                     const interesectedRatio = intersectedGeometryArea.areas[0] / countyArea.areas[0]
 
                                     // return ratio * population
@@ -253,6 +241,166 @@
 
 
             }, 4000)
+
+
+            async function getRoute(points) {
+
+                const routeUrl = "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve";
+
+                const routeParams = new RouteParameters({
+                    stops: new FeatureSet({
+                        features: points
+                    }),
+                    returnDirections: true,
+                    directionsLanguage: "es"
+                });
+
+                let ruta = []
+
+                const data = await route.solve(routeUrl, routeParams)
+                if (data.routeResults.length > 0) {
+                    console.log(data, "data")
+                    showRoute(data.routeResults[0].route);
+
+                    ruta = data.routeResults[0].route.geometry.paths
+                    return ruta
+                    //showDirections(data.routeResults[0].directions.features);
+                }
+            }
+
+            function showRoute(routeResult) {
+                routeResult.symbol = {
+                    type: "simple-line",
+                    color: [5, 150, 255],
+                    width: 3
+                };
+                view.graphics.add(routeResult,0);
+            }
+
+            function showDirections(directions) {
+                function showRouteDirections(directions) {
+                    const directionsList = document.createElement("ol");
+                    directions.forEach(function(result,i){
+                        const direction = document.createElement("li");
+                        direction.innerHTML = result.attributes.text + ((result.attributes.length > 0) ? " (" + result.attributes.length.toFixed(2) + " miles)" : "");
+                        directionsList.appendChild(direction);
+                    });
+                    directionsElement.appendChild(directionsList);
+                }
+
+                const directionsElement = document.createElement("div");
+                directionsElement.innerHTML = "<h3>Directions</h3>";
+                directionsElement.classList = "esri-widget esri-widget--panel esri-directions__scroller directions";
+                directionsElement.style.marginTop = "0";
+                directionsElement.style.padding = "0 15px";
+                directionsElement.style.minHeight = "365px";
+
+                showRouteDirections(directions);
+
+                view.ui.empty("top-right");
+                view.ui.add(new Expand({
+                    view:view,
+                    content:directionsElement,
+                    expanded:true,
+                    mode:"floating"}), "top-right");
+            }
+
+            function addGraphic(type, point) {
+                let color = "#ffffff";
+                let outlineColor = "#000000"
+                let size = "12px";
+                if (type == "start") {
+                    color = "#ffffff";
+                } else if (type == "stop") {
+                    color = "#000000";
+                    outlineColor = "#ffffff";
+                    size = "8px";
+                } else {
+                    color = "#000000";
+                    outlineColor = "#ffffff";
+                }
+                const graphic = new Graphic({
+                    symbol: {
+                        type: "simple-marker",
+                        color: color,
+                        size: size,
+                        outline: {
+                            color: outlineColor,
+                            width: "1px"
+                        }
+                    },
+                    geometry: point
+                });
+                view.graphics.add(graphic);
+                return graphic;
+            }
+
+            const origin = new Point([-122.690176,45.522054]); // [-122.690176,45.522054
+            const stop =  new Point([-122.685792,45.515485]);
+            const destination = new Point([-122.68782,45.51238]);
+
+            // generate array of points
+            const points = []
+            points.push(addGraphic("start", origin));
+            points.push(addGraphic("stop", stop));
+            points.push(addGraphic("end", destination));
+
+            let path = undefined
+            let currentPointIndex = 0;
+            let interpolation = 0.0; // max 1.0
+            getRoute(points).then((paths) => {
+                path = paths
+            })
+
+            // main loop
+            let last = Date.now()
+            setInterval(function() {
+                if (interpolation > 1) {
+                    interpolation = 0
+                    currentPointIndex += 1
+                    if (currentPointIndex >= path[0].length - 1) {
+                        currentPointIndex = 0
+                    }
+                }
+                const now = Date.now()
+                const delta = now - last
+                last = now
+                interpolation += 0.01 * delta
+                if (path) {
+                    const currentPoint = path[0][currentPointIndex]
+                    const nextPoint = path[0][currentPointIndex + 1]
+
+                    const currentPointGeometry = {
+                        type: "point",
+                        longitude: currentPoint[0],
+                        latitude: currentPoint[1]
+                    }
+                    const nextPointGeometry = {
+                        type: "point",
+                        longitude: nextPoint[0],
+                        latitude: nextPoint[1]
+                    }
+
+                    const interpolatedPointGeometry = {
+                        type: "point",
+                        longitude: currentPointGeometry.longitude + (nextPointGeometry.longitude - currentPointGeometry.longitude) * interpolation,
+                        latitude: currentPointGeometry.latitude + (nextPointGeometry.latitude - currentPointGeometry.latitude) * interpolation
+                    }
+
+                    carGeometry = {
+                        type: "point",
+                        longitude: carGraphic.geometry.longitude + 0.0001 * delta,
+                        latitude: carGraphic.geometry.latitude
+                    }
+                    carGraphic.geometry = new Point(
+                        interpolatedPointGeometry
+                    )
+
+
+
+                }
+
+            })
 
         });
     </script>
