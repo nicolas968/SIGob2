@@ -110,7 +110,12 @@
                 url: populationServiceUrl
             });
 
+            const pointsFeatureLayer = new FeatureLayer({
+                url: 'http://sampleserver5.arcgisonline.com/arcgis/rest/services/LocalGovernment/Events/FeatureServer'
+            })
+
             map.add(populationFeatureLayer);
+            map.add(pointsFeatureLayer);
 
             const getCarBuffer = async () => {
                 const bufferParams = new BufferParameters({
@@ -249,7 +254,7 @@
 
                 // Get sum of POPULATION_2020 based on the intersect of the buffer with the counties in the feature layer
 
-            }, 100000)
+            }, 10000)
 
 
             async function getRoute(points) {
@@ -406,7 +411,20 @@
 
                 }
 
-            },100000)
+            },10000)
+
+            console.log(points, 'puntos')
+            for (const point of points) {
+                point.attributes = {
+                    eventId: 23423
+                }
+            }
+
+            pointsFeatureLayer.applyEdits({
+                addFeatures: points
+            }).then(function(results) {
+                console.log("edits added: ", results);
+            });
 
         });
     </script>
