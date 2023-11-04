@@ -59,7 +59,7 @@
         ) {
 
             esriConfig.apiKey = "AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St";
-
+            let points = []
             const map = new Map({
                 basemap: "arcgis-navigation"
             });
@@ -75,10 +75,14 @@
             view.ui.add(search, "top-right"); //Add to the map
 
             search.on('search-complete', function(result){
-              points.push(addGraphic("stop", new Point([result.results[0].results[0].feature.geometry.x, result.results[0].results[0].feature.geometry.y])));            
-              getRoute(points).then((paths) => {
-                path = paths
-            })
+                console.log(result, 'search result')
+                const point = new Point([result.results[0].results[0].feature.geometry.longitude, result.results[0].results[0].feature.geometry.latitude])
+                const graphic = addGraphic("stop", point)
+                points.push(graphic)
+                console.log(points, 'points')
+                getRoute(points).then((paths) => {
+                    path = paths
+                })
             });
             const carSymbol = {
                 type: "picture-marker",
@@ -245,7 +249,7 @@
 
                 // Get sum of POPULATION_2020 based on the intersect of the buffer with the counties in the feature layer
 
-            }, 4000)
+            }, 100000)
 
 
             async function getRoute(points) {
@@ -264,7 +268,6 @@
 
                 const data = await route.solve(routeUrl, routeParams)
                 if (data.routeResults.length > 0) {
-                    console.log(data, "data")
                     showRoute(data.routeResults[0].route);
 
                     ruta = data.routeResults[0].route.geometry.paths
@@ -279,6 +282,7 @@
                     color: [5, 150, 255],
                     width: 3
                 };
+                console.log(routeResult)
                 view.graphics.add(routeResult,0);
             }
 
@@ -345,7 +349,6 @@
             const destination = new Point([-122.68782,45.51238]);
 
             // generate array of points
-            const points = []
             points.push(addGraphic("start", origin));
             points.push(addGraphic("stop", stop));
             points.push(addGraphic("end", destination));
@@ -403,7 +406,7 @@
 
                 }
 
-            },10000)
+            },100000)
 
         });
     </script>
