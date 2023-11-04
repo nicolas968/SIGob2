@@ -15,6 +15,8 @@
         }
     </style>
     <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
+    <script type="module" src=https://js.arcgis.com/calcite-components/1.10.0/calcite.esm.js></script>
+    <link rel="stylesheet" type="text/css" href=https://js.arcgis.com/calcite-components/1.10.0/calcite.css />
     <script src="https://js.arcgis.com/4.27/"></script>
     <script>
         // mock car_position
@@ -237,9 +239,6 @@
 
                 // Get sum of POPULATION_2020 based on the intersect of the buffer with the counties in the feature layer
 
-
-
-
             }, 4000)
 
 
@@ -396,8 +395,6 @@
                         interpolatedPointGeometry
                     )
 
-
-
                 }
 
             })
@@ -408,6 +405,20 @@
 
 </head>
 <body>
+<div style="position: absolute; bottom:0; border-radius: 10px; padding:15px; z-index: 1; right: 0;">
+    <calcite-list>
+        <calcite-list-item label="Hiking trails" description="Designated routes for hikers to use." value="hiking-trails">
+            <calcite-action slot="actions-end" icon="layer" text="Trails layer"></calcite-action>
+        </calcite-list-item>
+        <calcite-list-item label="Waterfalls" description="Vertical drops from a river." value="waterfalls">
+            <calcite-action slot="actions-end" icon="layer" text="Waterfalls layer"></calcite-action>
+        </calcite-list-item>
+        <calcite-list-item label="Rivers" description="Large naturally flowing watercourses." value="rivers">
+            <calcite-action slot="actions-end" icon="layer" text="Rivers layer"></calcite-action>
+        </calcite-list-item>
+    </calcite-list>
+</div>
+
 <div id="viewDiv">
 </div>
 <div style="position: absolute; top:0; background: beige; border-radius: 10px; padding:10px;">
