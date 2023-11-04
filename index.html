@@ -79,10 +79,14 @@
                 const point = new Point([result.results[0].results[0].feature.geometry.longitude, result.results[0].results[0].feature.geometry.latitude])
                 const graphic = addGraphic("stop", point)
                 points.push(graphic)
+                graphic.attributes = {
+                    streetName: result.searchTerm
+                }
                 console.log(points, 'points')
                 getRoute(points).then((paths) => {
                     path = paths
                 })
+                refreshPointsToUi()
             });
             const carSymbol = {
                 type: "picture-marker",
@@ -349,21 +353,6 @@
                 return graphic;
             }
 
-            const origin = new Point([-122.690176,45.522054]); // [-122.690176,45.522054
-            const stop =  new Point([-122.685792,45.515485]);
-            const destination = new Point([-122.68782,45.51238]);
-
-            // generate array of points
-            points.push(addGraphic("start", origin));
-            points.push(addGraphic("stop", stop));
-            points.push(addGraphic("end", destination));
-
-            let path = undefined
-            let currentPointIndex = 0;
-            let interpolation = 0.0; // max 1.0
-            getRoute(points).then((paths) => {
-                path = paths
-            })
 
             // main loop
             let last = Date.now()
@@ -426,22 +415,31 @@
                 console.log("edits added: ", results);
             });
 
+            function refreshPointsToUi() {
+                const list = document.getElementById('list')
+                list.innerHTML = ''
+                for (const point of points) {
+                    const listItem = document.createElement('calcite-list-item')
+                    listItem.label = point.attributes.streetName
+                    listItem.description = point.attributes.eventId
+                    list.appendChild(listItem)
+                }
+            }
+
         });
+
+
+
+
     </script>
 
 
 </head>
 <body>
 <div style="position: absolute; bottom:0; border-radius: 10px; padding:15px; z-index: 1; right: 0;">
-    <calcite-list>
-        <calcite-list-item label="Hiking trails" description="Designated routes for hikers to use." value="hiking-trails">
-            <calcite-action slot="actions-end" icon="layer" text="Trails layer"></calcite-action>
-        </calcite-list-item>
-        <calcite-list-item label="Waterfalls" description="Vertical drops from a river." value="waterfalls">
-            <calcite-action slot="actions-end" icon="layer" text="Waterfalls layer"></calcite-action>
-        </calcite-list-item>
-        <calcite-list-item label="Rivers" description="Large naturally flowing watercourses." value="rivers">
-            <calcite-action slot="actions-end" icon="layer" text="Rivers layer"></calcite-action>
+    <calcite-list id="list">
+        <calcite-list-item label="Loading...">
+            <calcite-button slot="action" icon="trash" color="red" scale="s" width="auto"></calcite-button>
         </calcite-list-item>
     </calcite-list>
 </div>
