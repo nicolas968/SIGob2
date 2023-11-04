@@ -72,6 +72,12 @@
             });
             view.ui.add(search, "top-right"); //Add to the map
 
+            search.on('search-complete', function(result){
+              points.push(addGraphic("stop", new Point([result.results[0].results[0].feature.geometry.x, result.results[0].results[0].feature.geometry.y])));            
+              getRoute(points).then((paths) => {
+                path = paths
+            })
+            });
             const carSymbol = {
                 type: "picture-marker",
                 url: "https://static.vecteezy.com/system/resources/previews/001/193/929/original/vintage-car-png.png",
@@ -400,7 +406,7 @@
 
                 }
 
-            })
+            },10000)
 
         });
     </script>
