@@ -80,14 +80,17 @@ require([
         console.log(bufferRadius, "bufferRadius changed")
     })
 
+
     search.on('search-complete', function(result){
         const point = new Point([result.results[0].results[0].feature.geometry.longitude, result.results[0].results[0].feature.geometry.latitude])
-        const graphic = addGraphic("stop", point)
+        const graphic = addGraphic("stop", point);
+
         points.push(graphic)
         graphic.attributes = {
             streetName: result.searchTerm
         }
         console.log(points, 'points')
+        renderPointList()
         getRoute(points).then((paths) => {
             path = paths
         })
@@ -178,6 +181,7 @@ require([
             width: 3
         };
         console.log(routeResult)
+        if(view.graphics) view.graphics.removeAll();
         view.graphics.add(routeResult,0);
     }
 
@@ -412,6 +416,77 @@ require([
             list.appendChild(listItem)
         }
     }
+
+    function removePoint(element){
+        var elem = points.find((e) => e == element.value)
+        var index = points.indexOf(elem)
+        points.splice(index,1);
+        document.getElementById("pointList").removeChild(element);
+        if(points.length<2){
+            refreshPointsToUi()
+            view.graphics.removeAll()
+        }
+        else{
+            getRoute(points).then((paths) => {
+                path = paths
+            });
+            refreshPointsToUi()
+        }
+    }
+
+    function createPointAction(point, elParent) {
+        let elAction = document.createElement("calcite-action");
+        elAction.setAttribute("slot", "actions-end");
+        elAction.setAttribute("icon", "trash");
+        elAction.setAttribute("text", point.attributes.streetName);
+        elAction.addEventListener('click', function(){
+
+            removePoint(elParent);
+
+        })
+        return elAction
+    }
+
+    function createPointListItem(point) {
+        let item = document.createElement("calcite-list-item");
+        console.log(point)
+        item.setAttribute("value", point.attributes.streetName);
+        item.setAttribute("label", point.attributes.streetName);
+        item.setAttribute("icon", "trash");//esto no se ve no se por que
+
+        const elAction = createPointAction(point, item)
+        item.appendChild(elAction)
+
+
+        return item
+    }
+
+    function renderPointList() {
+        // html element
+        const elPointList = document.getElementById("pointList");
+
+        elPointList.innerHTML = '';
+
+        for (const point of points) {
+            elPointList.appendChild(createPointListItem(point));
+        }
+
+        elPointList.addEventListener('calciteListOrderChange', function(event) {
+            event.stopImmediatePropagation()
+            const { detail } = event
+            const { newIndex, oldIndex } = detail
+            const point = points[oldIndex]
+            points.splice(oldIndex, 1)
+            points.splice(newIndex, 0, point)
+            getRoute(points).then((paths) => {
+                path = paths
+            })
+            refreshPointsToUi()
+        }, false)
+    }
+
+
+
 
 });
 

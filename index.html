@@ -12,6 +12,8 @@
             margin: 0;
             height: 100%;
             width: 100%;
+            display: flex;
+            flex-direction: row;
         }
     </style>
     <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
@@ -23,15 +25,6 @@
 
 </head>
 <body>
-<div style="position: absolute; bottom:0; border-radius: 10px; padding:15px; z-index: 1; right: 0;">
-    <calcite-list id="list">
-        <calcite-list-item label="Loading...">
-            <calcite-button slot="action" icon="trash" color="red" scale="s" width="auto"></calcite-button>
-        </calcite-list-item>
-    </calcite-list>
-
-
-</div>
 <div style="position: absolute; bottom:0; border-radius: 10px; padding:15px; z-index: 1; right: 0; left:0; width:100%; box-sizing: border-box; background: white;">
     <calcite-tabs style="width: 100%;">
         <calcite-tab-nav slot="title-group">
@@ -51,14 +44,13 @@
             </div>
         </calcite-tab>
     </calcite-tabs>
-
-
-
-
 </div>
 
 
 <div id="viewDiv">
+
+    <calcite-list id="pointList" drag-enabled>
+    </calcite-list>
 </div>
 <div style="position: absolute; top:0; background: beige; border-radius: 10px; padding:10px;">
     <span id="total-pop"/>
