@@ -25,6 +25,56 @@
 
 </head>
 <body>
+<calcite-shell>
+    <calcite-shell-panel slot="panel-start">
+        <calcite-panel heading="Panel">
+            <calcite-tabs style="width: auto;">
+                <calcite-tab-nav slot="title-group">
+                    <calcite-tab-title selected>
+                        Puntos
+                    </calcite-tab-title>
+                    <calcite-tab-title>
+                        Rutas Guardadas
+                    </calcite-tab-title>
+                </calcite-tab-nav>
+                <calcite-tab selected style="width: 100%; overflow-y: hidden;">
+                    <div style="display:flex; flex-direction: column; align-content: space-around;">
+                        <calcite-list id="pointList" drag-enabled>
+                        </calcite-list>
+                        <calcite-button id="saveButton" appearance="solid" color="blue" scale="m">
+                            Guardar
+                        </calcite-button>
+
+                    </div>
+
+                </calcite-tab>
+                <calcite-tab>
+                </calcite-tab>
+            </calcite-tabs>
+        </calcite-panel>
+        <calcite-panel heading="Panel" >
+            <calcite-tabs style="width: 100%; height: 100%;">
+                <calcite-tab-nav slot="title-group">
+                    <calcite-tab-title selected>
+                        Speed
+                    </calcite-tab-title>
+                    <calcite-tab-title>Buffer Radius</calcite-tab-title>
+                </calcite-tab-nav>
+                <calcite-tab selected style="width: 100%; overflow-y: hidden;">
+                    <calcite-slider style="width:95%; margin:auto;" value="0" id="speed" min="0" max="180" step="1" label-handles="true" label-ticks="true" ticks="60" tick-interval="10" label="Speed" />
+                </calcite-tab>
+                <calcite-tab selected style="width: 100%; overflow-y: hidden;">
+                    <calcite-slider style="width: 95%;" value="30" id="buffer" min="0" max="100" step="1" label-handles="true" label-ticks="true" ticks="10" tick-interval="10" label="Buffer Radius" />
+                </calcite-tab>
+            </calcite-tabs>
+        </calcite-panel>
+    </calcite-shell-panel>
+
+    <calcite-panel heading="Mapa" >
+        <div id="viewDiv"/>
+    </calcite-panel>
+</calcite-shell>
+<!--
 <div style="position: absolute; bottom:0; border-radius: 10px; padding:15px; z-index: 1; right: 0; left:0; width:100%; box-sizing: border-box; background: white;">
     <calcite-tabs style="width: 100%;">
         <calcite-tab-nav slot="title-group">
@@ -40,20 +90,38 @@
         </calcite-tab>
         <calcite-tab>
             <div style=" display: flex; justify-content: space-around;">
-                <calcite-slider style="width: 90%;" value="30" id="buffer" min="0" max="100" step="1" label-handles="true" label-ticks="true" ticks="10" tick-interval="10" label="Buffer Radius" />
             </div>
         </calcite-tab>
     </calcite-tabs>
 </div>
 
-
 <div id="viewDiv">
+    <calcite-tabs style="width: auto;">
+        <calcite-tab-nav slot="title-group">
+            <calcite-tab-title selected>
+                Puntos
+            </calcite-tab-title>
+            <calcite-tab-title>
+                Rutas Guardadas
+            </calcite-tab-title>
+        </calcite-tab-nav>
+        <calcite-tab selected>
+            <div style="padding: 10px;">
+                <calcite-list id="pointList" drag-enabled>
+                </calcite-list>
+                <calcite-button>Guardar</calcite-button>
+            </div>
+        </calcite-tab>
+        <calcite-tab>
+        </calcite-tab>
+    </calcite-tabs>
+    </calcite-panel>
 
-    <calcite-list id="pointList" drag-enabled>
-    </calcite-list>
+
+
 </div>
 <div style="position: absolute; top:0; background: beige; border-radius: 10px; padding:10px;">
     <span id="total-pop"/>
-</div>
+</div>-->
 </body>
 </html>

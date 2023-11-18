@@ -2,12 +2,7 @@ const POPULATION_SERVICE_URL = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arc
 const ESRI_API_KEY = 'AAPK703bbf4bf7b84c8ca9ee01606fe0430cbBQwAqSYc7dXT33E-W7HMyo4iS5Xb0rV-Rwzv6csCU14P0KvFCdrqXQU3jsIu6St'
 const FEATURE_SERVER_API = 'http://sampleserver5.arcgisonline.com/arcgis/rest/services/LocalGovernment/Events/FeatureServer'
 const GEOMETRY_SERVER_API = 'http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer'
-
-let carGeometry = {
-    type: "point",
-    longitude: -122.3321,
-    latitude: 47.6062
-};
+const ROUTE_SERVICE = 'https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve'
 
 require([
     "esri/config",
@@ -39,6 +34,43 @@ require([
     route
 ) {
 
+    const Car = {
+        graphic: new Graphic({
+            geometry: {
+                type: "point",
+                longitude: -122.3321,
+                latitude: 47.6062
+            },
+            symbol: {
+                type: "picture-marker",
+                url: "https://static.vecteezy.com/system/resources/previews/001/193/929/original/vintage-car-png.png",
+                width: "100px",
+                height: "48px"
+            },
+            attributes: {
+                name: "car",
+            },
+            visible: false,
+        }),
+
+        updateLatLong: function(latitude, longitude) {
+            this.graphic.geometry = new Point({
+                type: "point",
+                longitude: longitude,
+                latitude: latitude
+            })
+        },
+
+        hide: function() {
+            this.graphic.visible = false
+        },
+
+        show: function() {
+            this.graphic.visible = true
+        }
+    }
+
+
     // set up esri
     esriConfig.apiKey = ESRI_API_KEY;
     const map = new Map({ basemap: "arcgis-navigation" });
@@ -61,13 +93,13 @@ require([
     map.add(pointsFeatureLayer);
 
 
-
-    let points = []
+    let pointGraphics = []
     let path = false;
     let speed = 0;
     let bufferRadius = 0;
     let interesectedGraphics = []
     let currentBufferGraphic = undefined
+    let routeGraphic = undefined
 
 
     document.getElementById('speed').addEventListener('calciteSliderChange', (event) => {
@@ -85,36 +117,15 @@ require([
         const point = new Point([result.results[0].results[0].feature.geometry.longitude, result.results[0].results[0].feature.geometry.latitude])
         const graphic = addGraphic("stop", point);
 
-        points.push(graphic)
+        pointGraphics.push(graphic)
         graphic.attributes = {
             streetName: result.searchTerm
         }
-        console.log(points, 'points')
         renderPointList()
-        getRoute(points).then((paths) => {
-            path = paths
-        })
-        refreshPointsToUi()
-    });
-    const carSymbol = {
-        type: "picture-marker",
-        url: "https://static.vecteezy.com/system/resources/previews/001/193/929/original/vintage-car-png.png",
-        width: "100px",
-        height: "48px"
-    }
+        getRoute(pointGraphics)
 
-    const carAttributes = {
-        name: "car",
-        location: "Seattle"
-    }
-
-    const carGraphic = new Graphic({
-        geometry: carGeometry,
-        symbol: carSymbol,
-        attributes: carAttributes
     });
 
-    view.graphics.add(carGraphic);
 
     const getCarBuffer = async () => {
         const bufferParams = new BufferParameters({
@@ -123,7 +134,7 @@ require([
             geodesic: true,
             bufferSpatialReference: view.spatialReference,
             outSpatialReference: view.spatialReference,
-            geometries: [carGeometry]
+            geometries: [Car.graphic.geometry]
         });
         const bufferedCar = await GeometryService.buffer(GEOMETRY_SERVER_API, bufferParams)
 
@@ -140,21 +151,15 @@ require([
         });
     }
 
-
     getCarBuffer().then((buffer) => {
         currentBufferGraphic = buffer
-
         view.graphics.add(currentBufferGraphic);
     })
 
-    view.graphics.removeAll()
+    view.graphics.add(Car.graphic);
 
-    view.graphics.add(carGraphic);
 
     async function getRoute(points) {
-
-        const routeUrl = "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve";
-
         const routeParams = new RouteParameters({
             stops: new FeatureSet({
                 features: points
@@ -163,14 +168,17 @@ require([
             directionsLanguage: "es"
         });
 
-        let ruta = []
-
-        const data = await route.solve(routeUrl, routeParams)
+        const data = await route.solve(ROUTE_SERVICE, routeParams)
         if (data.routeResults.length > 0) {
             showRoute(data.routeResults[0].route);
 
-            ruta = data.routeResults[0].route.geometry.paths
-            return ruta
+            path = data.routeResults[0].route.geometry.paths
+
+            restartAnimation()
+            Car.show()
+            refreshPointsToUi()
+        } else {
+            Car.hide()
         }
     }
 
@@ -180,8 +188,10 @@ require([
             color: [5, 150, 255],
             width: 3
         };
-        console.log(routeResult)
-        if(view.graphics) view.graphics.removeAll();
+        if (view.graphics) {
+            view.graphics.remove(routeGraphic);
+        }
+        routeGraphic = routeResult
         view.graphics.add(routeResult,0);
     }
 
@@ -217,10 +227,15 @@ require([
 
     let interpolation = 0
     let currentPointIndex = 0
+    let currentSectionIndex = 0
     // main loop
     let last = Date.now()
 
-
+    function restartAnimation() {
+        interpolation = 0
+        currentPointIndex = 0
+        currentSectionIndex = 0
+    }
 
     const refreshBufferGraphic = (newGraphic) => {
         view.graphics.remove(currentBufferGraphic);
@@ -321,17 +336,6 @@ require([
         const results = await Promise.all(promises)
         const totalPopulation = results.reduce((a, b) => a + b, 0)
         document.getElementById('total-pop').innerHTML = totalPopulation
-
-        // draw the intersected geometries
-        //for (const countyGraphic of interesectedGraphics) {
-        //    view.graphics.add(countyGraphic);
-        //}
-        //     const intersectedGeometry = feature.geometry
-
-
-        // this should not work lol
-
-
     }
 
     function animateCar() {
@@ -342,8 +346,8 @@ require([
 
             const delta = now - last
 
-            const currentPoint = path[0][currentPointIndex]
-            const nextPoint = path[0][currentPointIndex + 1]
+            const currentPoint = path[currentSectionIndex][currentPointIndex]
+            const nextPoint = path[currentSectionIndex][currentPointIndex + 1]
 
             const distance = Math.sqrt(
                 Math.pow(currentPoint[0] - nextPoint[0], 2) +
@@ -354,10 +358,16 @@ require([
             interpolation += (speed * (1/10000000) * (delta)) / distance
 
             if (interpolation > 1) {
+                console.log("next point")
                 interpolation = 0
                 currentPointIndex += 1
-                if (currentPointIndex >= path[0].length - 1) {
+                if (currentPointIndex >= path[currentSectionIndex].length - 1) {
+                    console.log("next section")
                     currentPointIndex = 0
+                    currentSectionIndex += 1
+                    if (currentSectionIndex > path.length - 1) {
+                        currentSectionIndex = 0
+                    }
                 }
             }
 
@@ -372,14 +382,10 @@ require([
                 latitude: nextPoint[1]
             }
 
-            carGeometry = {
-                type: "point",
-                longitude: currentPointGeometry.longitude + (nextPointGeometry.longitude - currentPointGeometry.longitude) * interpolation,
-                latitude: currentPointGeometry.latitude + (nextPointGeometry.latitude - currentPointGeometry.latitude) * interpolation
-            }
-            carGraphic.geometry = new Point(
-                carGeometry
-            )
+            const latitude = currentPointGeometry.latitude + (nextPointGeometry.latitude - currentPointGeometry.latitude) * interpolation
+            const longitude = currentPointGeometry.longitude + (nextPointGeometry.longitude - currentPointGeometry.longitude) * interpolation
+
+            Car.updateLatLong(latitude, longitude)
 
         }
     }
@@ -394,14 +400,14 @@ require([
         await bufferLoop()
     }, 1000)
 
-    for (const point of points) {
+    for (const point of pointGraphics) {
         point.attributes = {
             eventId: 23423
         }
     }
 
     pointsFeatureLayer.applyEdits({
-        addFeatures: points
+        addFeatures: pointGraphics
     }).then(function(results) {
         console.log("edits added: ", results);
     });
@@ -409,7 +415,7 @@ require([
     function refreshPointsToUi() {
         const list = document.getElementById('list')
         list.innerHTML = ''
-        for (const point of points) {
+        for (const point of pointGraphics) {
             const listItem = document.createElement('calcite-list-item')
             listItem.label = point.attributes.streetName
             listItem.description = point.attributes.eventId
@@ -417,20 +423,21 @@ require([
         }
     }
 
-    function removePoint(element){
-        var elem = points.find((e) => e == element.value)
-        var index = points.indexOf(elem)
-        points.splice(index,1);
+    function removePointAction(element){
+        const elem = pointGraphics.find((e) => e.attributes.streetName == element.value)
+        const index = pointGraphics.indexOf(elem)
+
+        view.graphics.remove(elem)
+
+        pointGraphics.splice(index,1);
         document.getElementById("pointList").removeChild(element);
-        if(points.length<2){
-            refreshPointsToUi()
-            view.graphics.removeAll()
+        if(pointGraphics.length<2){
+            // remove route
+            view.graphics.remove(routeGraphic);
+            path = false;
         }
         else{
-            getRoute(points).then((paths) => {
-                path = paths
-            });
-            refreshPointsToUi()
+            getRoute(pointGraphics)
         }
     }
 
@@ -440,9 +447,7 @@ require([
         elAction.setAttribute("icon", "trash");
         elAction.setAttribute("text", point.attributes.streetName);
         elAction.addEventListener('click', function(){
-
-            removePoint(elParent);
-
+            removePointAction(elParent);
         })
         return elAction
     }
@@ -467,7 +472,7 @@ require([
 
         elPointList.innerHTML = '';
 
-        for (const point of points) {
+        for (const point of pointGraphics) {
             elPointList.appendChild(createPointListItem(point));
         }
 
@@ -475,13 +480,10 @@ require([
             event.stopImmediatePropagation()
             const { detail } = event
             const { newIndex, oldIndex } = detail
-            const point = points[oldIndex]
-            points.splice(oldIndex, 1)
-            points.splice(newIndex, 0, point)
-            getRoute(points).then((paths) => {
-                path = paths
-            })
-            refreshPointsToUi()
+            const point = pointGraphics[oldIndex]
+            pointGraphics.splice(oldIndex, 1)
+            pointGraphics.splice(newIndex, 0, point)
+            getRoute(pointGraphics)
         }, false)
     }
 
