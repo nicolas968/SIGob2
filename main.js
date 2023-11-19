@@ -92,7 +92,7 @@ require([
     map.add(populationFeatureLayer);
     map.add(pointsFeatureLayer);
 
-
+    let animation = false;
     let pointGraphics = []
     let path = false;
     let speed = 0;
@@ -375,18 +375,24 @@ require([
             const longitude = currentPointLongitude + (nextPointLongitude - currentPointLongitude) * interpolation
 
             Car.updateLatLong(latitude, longitude)
+            // update map center
+            view.center = [longitude, latitude]
 
         }
     }
 
     // car loop
     setInterval(async function() {
-        window.requestAnimationFrame(animateCar);
+        if (animation) {
+            window.requestAnimationFrame(animateCar);
+        }
     },0)
 
     // buffer loop
     setInterval(async function() {
-        await bufferLoop()
+        if (animation) {
+            await bufferLoop()
+        }
     }, 5000)
 
     for (const point of pointGraphics) {
@@ -580,6 +586,14 @@ require([
     })
 
     loadRoutes()
+
+    document.getElementById('pauseButton').addEventListener('click', function() {
+        animation = false
+    })
+
+    document.getElementById('playButton').addEventListener('click', function() {
+        animation = true
+    })
 
 
 });

@@ -62,6 +62,23 @@
                 <calcite-icon scale="s" slot="icon" icon="map-pin"></calcite-icon>
                 <calcite-slider style="width: 95%;margin:auto;" value="0" id="buffer" min="0" max="180" step="1" label-handles="true" label-ticks="true" ticks="30" tick-interval="10" label="Buffer Radius" />
             </calcite-block>
+
+            <calcite-block collapsible heading="Animación" description="Animación">
+                <calcite-icon scale="s" slot="icon" icon="map-pin"></calcite-icon>
+                <calcite-button
+                        icon-end="pause"
+                        appearance="outline"
+                        id="pauseButton"
+                        label="Pausar">
+                    Pausar
+                </calcite-button>
+                <calcite-button
+                        icon-end="play"
+                        id="playButton"
+                        label="Iniciar">
+                    Iniciar
+                </calcite-button>
+            </calcite-block>
         </calcite-panel>
     </calcite-shell-panel>
 
