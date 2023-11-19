@@ -100,6 +100,7 @@ require([
     let interesectedGraphics = []
     let currentBufferGraphic = undefined
     let routeGraphic = undefined
+    let storedRoutes = {}  // dict of routes with "name" and "points" (array of points)
 
 
     document.getElementById('speed').addEventListener('calciteSliderChange', (event) => {
@@ -335,15 +336,13 @@ require([
 
         const results = await Promise.all(promises)
         const totalPopulation = results.reduce((a, b) => a + b, 0)
-        document.getElementById('total-pop').innerHTML = totalPopulation
+        document.getElementById('total-pop').innerHTML = Math.round(totalPopulation).toString()
     }
-
     function animateCar() {
 
         if (path) {
 
             const now = Date.now()
-
             const delta = now - last
 
             const currentPoint = path[currentSectionIndex][currentPointIndex]
@@ -358,11 +357,9 @@ require([
             interpolation += (speed * (1/10000000) * (delta)) / distance
 
             if (interpolation > 1) {
-                console.log("next point")
                 interpolation = 0
                 currentPointIndex += 1
                 if (currentPointIndex >= path[currentSectionIndex].length - 1) {
-                    console.log("next section")
                     currentPointIndex = 0
                     currentSectionIndex += 1
                     if (currentSectionIndex > path.length - 1) {
@@ -371,19 +368,11 @@ require([
                 }
             }
 
-            const currentPointGeometry = {
-                type: "point",
-                longitude: currentPoint[0],
-                latitude: currentPoint[1]
-            }
-            const nextPointGeometry = {
-                type: "point",
-                longitude: nextPoint[0],
-                latitude: nextPoint[1]
-            }
+            const [currentPointLongitude, currentPointLatitude] = currentPoint
+            const [nextPointLongitude, nextPointLatitude] = nextPoint
 
-            const latitude = currentPointGeometry.latitude + (nextPointGeometry.latitude - currentPointGeometry.latitude) * interpolation
-            const longitude = currentPointGeometry.longitude + (nextPointGeometry.longitude - currentPointGeometry.longitude) * interpolation
+            const latitude = currentPointLatitude + (nextPointLatitude - currentPointLatitude) * interpolation
+            const longitude = currentPointLongitude + (nextPointLongitude - currentPointLongitude) * interpolation
 
             Car.updateLatLong(latitude, longitude)
 
@@ -398,7 +387,7 @@ require([
     // buffer loop
     setInterval(async function() {
         await bufferLoop()
-    }, 1000)
+    }, 5000)
 
     for (const point of pointGraphics) {
         point.attributes = {
@@ -406,20 +395,18 @@ require([
         }
     }
 
-    pointsFeatureLayer.applyEdits({
-        addFeatures: pointGraphics
-    }).then(function(results) {
-        console.log("edits added: ", results);
-    });
+
 
     function refreshPointsToUi() {
         const list = document.getElementById('list')
-        list.innerHTML = ''
-        for (const point of pointGraphics) {
-            const listItem = document.createElement('calcite-list-item')
-            listItem.label = point.attributes.streetName
-            listItem.description = point.attributes.eventId
-            list.appendChild(listItem)
+        if (list) {
+            list.innerHTML = ''
+            for (const point of pointGraphics) {
+                const listItem = document.createElement('calcite-list-item')
+                listItem.label = point.attributes.streetName
+                listItem.description = point.attributes.eventId
+                list.appendChild(listItem)
+            }
         }
     }
 
@@ -487,7 +474,112 @@ require([
         }, false)
     }
 
+    /**
+     * Remove all events with same description in the pointsFeatureLayer
+     * Usually used before saving new events with the same description
+     * A description defines a route, so we don't want to have 2 routes with the same name
+     * @param description
+     */
+    function removeEvents(description) {
+        const query = pointsFeatureLayer.createQuery();
+        query.where = `description = '${description}' AND eventid = 23423`;
+        query.outFields = ["*"];
+        query.returnGeometry = true;
+        query.outSpatialReference = view.spatialReference;
 
+        pointsFeatureLayer.queryFeatures(query).then(function(results) {
+            console.log(results.features)
+            pointsFeatureLayer.applyEdits({
+                deleteFeatures: results.features
+            }).then(function(results) {
+                console.log("edits deleted: ", results);
+            });
+        })
+    }
+
+    /**
+     * Save the points in the pointsFeatureLayer
+     * We use the event id to identify the index
+     * We use the description to identify the street
+     * We use the event_type 2 just because
+     * We use the website to store the project identifier isig-2023-g2-point and the route name
+     *  -> isig-2023-g2-point:routeName
+     * @param routeName
+     */
+    function savePoints(routeName) {
+        removeEvents(routeName)  // remove any event in the layer with same description (routeName)
+
+        pointGraphics.forEach((p, i) => {
+            p.attributes.eventId = i
+            p.attributes.description = p.attributes.streetName
+            p.attributes.event_type = 2
+            p.attributes.website = `isig-2023-g2-point:${routeName}`
+        })
+        pointsFeatureLayer.applyEdits({ addFeatures: pointGraphics })
+    }
+
+    document.getElementById('saveButton').addEventListener('click', function() {
+        savePoints(document.getElementById('routeName').value)
+    })
+
+    /**
+     * Load the routes from the pointsFeatureLayer
+     */
+    async function loadRoutes() {
+        const query = pointsFeatureLayer.createQuery();
+        query.where = "website LIKE 'isig-2023-g2-point:%'";
+        query.outFields = ["*"];
+        query.returnGeometry = true;
+        query.outSpatialReference = view.spatialReference;
+
+        const results = await pointsFeatureLayer.queryFeatures(query)
+
+        results.features.forEach((feature) => {
+            const routeName = feature.attributes.website.split(':')[1]
+            const index = feature.attributes.eventid
+            const streetName = feature.attributes.description
+            if (!storedRoutes[routeName]) {
+                storedRoutes[routeName] = []
+            }
+            storedRoutes[routeName][index] = {
+                geometry: feature.geometry,
+                streetName: streetName
+            }
+        })
+        console.log(storedRoutes, "storedRoutes")
+
+        const routesList = document.getElementById('savedRoutes')
+        routesList.innerHTML = ''
+        for (const routeName in storedRoutes) {
+            const listItem = document.createElement('calcite-list-item')
+            listItem.label = routeName
+            listItem.description = `${storedRoutes[routeName].length} paradas`
+            listItem.addEventListener('click', function() {
+                pointGraphics = storedRoutes[routeName].map((stop) => {
+                    const g = addGraphic("stop", stop.geometry);
+                    console.log(g)
+                    g.attributes = { streetName: stop.streetName }
+                    return g
+                })
+                renderPointList()
+                getRoute(pointGraphics)
+            })
+            routesList.appendChild(listItem)
+        }
+
+    }
+    const query = pointsFeatureLayer.createQuery();
+    // with event 23423
+    query.where = "EVENTID = 23423";
+    query.outFields = ["*"];
+    query.returnGeometry = true;
+    query.outSpatialReference = view.spatialReference;
+
+    pointsFeatureLayer.queryFeatures(query).then(function(results) {
+        console.log(results.features)
+    })
+
+    loadRoutes()
 
 
 });
