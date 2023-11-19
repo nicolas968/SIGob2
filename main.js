@@ -18,6 +18,9 @@ require([
     "esri/rest/support/RouteParameters",
     "esri/rest/support/FeatureSet",
     "esri/rest/route",
+    "esri/rest/print",
+    "esri/rest/support/PrintTemplate",
+    "esri/rest/support/PrintParameters"
 ], function(
     esriConfig,
     Map,
@@ -31,7 +34,10 @@ require([
     AreasAndLengthsParameters,
     RouteParameters,
     FeatureSet,
-    route
+    route,
+    print,
+    PrintTemplate,
+    PrintParameters
 ) {
 
     const Car = {
@@ -595,6 +601,45 @@ require([
         animation = true
     })
 
+    // export masp as pdf function
+    // using http://sampleserver5.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task
+    document.getElementById('downloadButton').addEventListener('click', function() {
+        const url = "http://sampleserver5.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task";
+
+        const template = new PrintTemplate({
+            format: "pdf",
+            exportOptions: {
+                dpi: 300
+            },
+            layout: "A3 Landscape",
+            layoutOptions: {
+                titleText: "Gillette Stadium",
+                authorText: "Thomas B."
+            }
+        });
+
+        const params = new PrintParameters({
+            view: view,
+            template: template,
+
+        });
+
+        // print when this function is called
+        function executePrint() {
+            print.execute(url, params).then(printResult).catch(printError);
+        }
+
+        function printResult(result) {
+            console.log(result.url);
+            window.open(result.url);
+        }
+
+        function printError(err) {
+            console.log("Something broke: ", err);
+        }
+
+        executePrint()
+    })
 
 });
 
