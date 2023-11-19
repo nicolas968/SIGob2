@@ -480,21 +480,20 @@ require([
      * A description defines a route, so we don't want to have 2 routes with the same name
      * @param description
      */
-    function removeEvents(description) {
+    async function removeEvents(routeName) {
         const query = pointsFeatureLayer.createQuery();
-        query.where = `description = '${description}' AND eventid = 23423`;
+        query.where = `website = 'isig-2023-g2-point:${routeName}'`;
         query.outFields = ["*"];
         query.returnGeometry = true;
         query.outSpatialReference = view.spatialReference;
 
-        pointsFeatureLayer.queryFeatures(query).then(function(results) {
-            console.log(results.features)
-            pointsFeatureLayer.applyEdits({
-                deleteFeatures: results.features
-            }).then(function(results) {
-                console.log("edits deleted: ", results);
-            });
-        })
+        const results = pointsFeatureLayer.queryFeatures(query)
+        console.log(results.features)
+        pointsFeatureLayer.applyEdits({
+            deleteFeatures: results.features
+        }).then(function(results) {
+            console.log("edits deleted: ", results);
+        });
     }
 
     /**
@@ -506,16 +505,17 @@ require([
      *  -> isig-2023-g2-point:routeName
      * @param routeName
      */
-    function savePoints(routeName) {
-        removeEvents(routeName)  // remove any event in the layer with same description (routeName)
+    async function savePoints(routeName) {
+        await removeEvents(routeName)  // remove any event in the layer with same description (routeName)
 
         pointGraphics.forEach((p, i) => {
             p.attributes.eventId = i
             p.attributes.description = p.attributes.streetName
             p.attributes.event_type = 2
             p.attributes.website = `isig-2023-g2-point:${routeName}`
+            console.log(p.attributes.streetName)
         })
-        pointsFeatureLayer.applyEdits({ addFeatures: pointGraphics })
+        await pointsFeatureLayer.applyEdits({ addFeatures: pointGraphics })
     }
 
     document.getElementById('saveButton').addEventListener('click', function() {
