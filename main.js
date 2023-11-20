@@ -76,7 +76,6 @@ require([
         }
     }
 
-
     // set up esri
     esriConfig.apiKey = ESRI_API_KEY;
     const map = new Map({ basemap: "arcgis-navigation" });
@@ -97,6 +96,9 @@ require([
 
     map.add(populationFeatureLayer);
     map.add(pointsFeatureLayer);
+
+    // hide points layer
+    pointsFeatureLayer.visible = false
 
     let animation = false;
     let pointGraphics = []
@@ -174,9 +176,13 @@ require([
             returnDirections: true,
             directionsLanguage: "es"
         });
-
-        const data = await route.solve(ROUTE_SERVICE, routeParams)
-        if (data.routeResults.length > 0) {
+        let data = false
+        try {
+            data = await route.solve(ROUTE_SERVICE, routeParams)
+        } catch (e) {
+            console.log(e)
+        }
+        if (data && data.routeResults.length > 0) {
             showRoute(data.routeResults[0].route);
 
             path = data.routeResults[0].route.geometry.paths
@@ -453,7 +459,6 @@ require([
 
     function createPointListItem(point) {
         let item = document.createElement("calcite-list-item");
-        console.log(point)
         item.setAttribute("value", point.attributes.streetName);
         item.setAttribute("label", point.attributes.streetName);
         item.setAttribute("icon", "trash");//esto no se ve no se por que
@@ -494,18 +499,20 @@ require([
      */
     async function removeEvents(routeName) {
         const query = pointsFeatureLayer.createQuery();
-        query.where = `website = 'isig-2023-g2-point:${routeName}'`;
+        query.where = `website = 'isig-2023-g2-point:${routeName || ''}'`;
         query.outFields = ["*"];
         query.returnGeometry = true;
         query.outSpatialReference = view.spatialReference;
 
-        const results = pointsFeatureLayer.queryFeatures(query)
+        const results = await pointsFeatureLayer.queryFeatures(query)
         console.log(results.features)
-        pointsFeatureLayer.applyEdits({
-            deleteFeatures: results.features
-        }).then(function(results) {
-            console.log("edits deleted: ", results);
-        });
+        if (results.features) {
+            const removed = await pointsFeatureLayer.applyEdits({
+                deleteFeatures: results.features
+            })
+            console.log("edits deleted: ", removed);
+        }
+
     }
 
     /**
@@ -522,16 +529,22 @@ require([
 
         pointGraphics.forEach((p, i) => {
             p.attributes.eventId = i
-            p.attributes.description = p.attributes.streetName
+            p.attributes.description = p.attributes.streetName.substring(0, 50)
             p.attributes.event_type = 2
             p.attributes.website = `isig-2023-g2-point:${routeName}`
             console.log(p.attributes.streetName)
         })
         await pointsFeatureLayer.applyEdits({ addFeatures: pointGraphics })
+        loadRoutes()
+
+        const alertEl = document.getElementById('alert')
+        alertEl.open = false
+        alertEl.open = true
+
     }
 
-    document.getElementById('saveButton').addEventListener('click', function() {
-        savePoints(document.getElementById('routeName').value)
+    document.getElementById('saveButton').addEventListener('click', async function() {
+        await savePoints(document.getElementById('routeName').value)
     })
 
     /**
@@ -545,11 +558,11 @@ require([
         query.outSpatialReference = view.spatialReference;
 
         const results = await pointsFeatureLayer.queryFeatures(query)
-
+        storedRoutes = {}
         results.features.forEach((feature) => {
             const routeName = feature.attributes.website.split(':')[1]
             const index = feature.attributes.eventid
-            const streetName = feature.attributes.description
+            const streetName = feature.attributes.description.substring(0, 50)
             if (!storedRoutes[routeName]) {
                 storedRoutes[routeName] = []
             }
@@ -574,22 +587,13 @@ require([
                     return g
                 })
                 renderPointList()
+                document.getElementById('routeName').value = routeName
                 getRoute(pointGraphics)
             })
             routesList.appendChild(listItem)
         }
 
     }
-    const query = pointsFeatureLayer.createQuery();
-    // with event 23423
-    query.where = "EVENTID = 23423";
-    query.outFields = ["*"];
-    query.returnGeometry = true;
-    query.outSpatialReference = view.spatialReference;
-
-    pointsFeatureLayer.queryFeatures(query).then(function(results) {
-        console.log(results.features)
-    })
 
     loadRoutes()
 
@@ -613,15 +617,15 @@ require([
             },
             layout: "A3 Landscape",
             layoutOptions: {
-                titleText: "Gillette Stadium",
-                authorText: "Thomas B."
+                // route name
+                titleText: document.getElementById('routeName').value,
+                authorText: "ISIG 2023 - G2",
             }
         });
 
         const params = new PrintParameters({
             view: view,
             template: template,
-
         });
 
         // print when this function is called
@@ -639,6 +643,10 @@ require([
         }
 
         executePrint()
+    })
+
+    document.getElementById('centerButton').addEventListener('click', function() {
+        view.goTo(routeGraphic)
     })
 
 });

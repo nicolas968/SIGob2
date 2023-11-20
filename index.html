@@ -38,7 +38,7 @@
                     </calcite-tab-title>
                 </calcite-tab-nav>
                 <calcite-tab selected >
-                    <calcite-input autofocus placeholder="Nueva" prefix-text="Nombre de ruta" id="routeName" >
+                    <calcite-input autofocus placeholder="Nueva" prefix-text="Nombre de ruta" id="routeName">
                     </calcite-input>
                     <calcite-list id="pointList" drag-enabled />
                 </calcite-tab>
@@ -66,6 +66,12 @@
             <calcite-block collapsible heading="Animación" description="Animación">
                 <calcite-icon scale="s" slot="icon" icon="map-pin"></calcite-icon>
                 <calcite-button
+                        icon-end="gps-on-f"
+                        id="centerButton"
+                        label="Centrar">
+                    Centrar
+                </calcite-button>
+                <calcite-button
                         icon-end="pause"
                         appearance="outline"
                         id="pauseButton"
@@ -90,5 +96,9 @@
         </div>
     </calcite-panel>
 </calcite-shell>
+<calcite-alert icon="exclamation-mark-triangle" color="yellow" scale="s" auto-close id="alert"
+               kind="brand" >
+    <div slot="title">La ruta ha sido guardada</div>
+</calcite-alert>
 </body>
 </html>
