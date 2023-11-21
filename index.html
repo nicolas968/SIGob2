@@ -65,15 +65,23 @@
 
             <calcite-block collapsible heading="Animación" description="Animación">
                 <calcite-icon scale="s" slot="icon" icon="map-pin"></calcite-icon>
-                <calcite-button
+                <div style="display: flex; flex-direction: row; justify-content: space-around;">
+                   <calcite-button
                         icon-end="gps-on-f"
                         id="centerButton"
+                        scale="m"
+                        width="half"
+                        appearance="outline-fill"
+                        kind="neutral"
                         label="Centrar">
                     Centrar
                 </calcite-button>
                 <calcite-button
+                        style="display: none;"
                         icon-end="pause"
                         appearance="outline"
+                        scale="m"
+                        width="half"
                         id="pauseButton"
                         label="Pausar">
                     Pausar
@@ -81,9 +89,13 @@
                 <calcite-button
                         icon-end="play"
                         id="playButton"
+                        scale="m"
+                        width="half"
+
                         label="Iniciar">
                     Iniciar
                 </calcite-button>
+                </div>
             </calcite-block>
         </calcite-panel>
     </calcite-shell-panel>

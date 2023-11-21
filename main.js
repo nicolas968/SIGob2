@@ -597,12 +597,23 @@ require([
 
     loadRoutes()
 
+    function setAnimation(value) {
+        animation = value
+        if (value) {
+            document.getElementById('pauseButton').style.display = 'block'
+            document.getElementById('playButton').style.display = 'none'
+        } else {
+            document.getElementById('pauseButton').style.display = 'none'
+            document.getElementById('playButton').style.display = 'block'
+        }
+    }
+
     document.getElementById('pauseButton').addEventListener('click', function() {
-        animation = false
+        setAnimation(false)
     })
 
     document.getElementById('playButton').addEventListener('click', function() {
-        animation = true
+        setAnimation(true)
     })
 
     // export masp as pdf function
